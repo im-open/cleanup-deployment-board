@@ -1,18 +1,36 @@
-name: 'JavaScript Action Template'
+name: 'Cleanup Deployment Board'
 
-description: 'Add description here'
+description: 'Cleans up inactive deployment Issues on an Automated Deployment Project Board.'
 
 inputs:
-  input-1:
-    description: 'Add a description here'
+  github-token:
+    description: 'A token with permissions to close issues and archive project cards'
     required: true
-  input-2:
-    description: 'Add a description here'
-    required: false
-
-outputs:
-  output-1:
-    description: 'Add a description here'
+  github-login:
+    description: 'The login associated with the account that created the deployment cards.  Defaults to github-actions.'
+    required: true
+    default: 'github-actions'
+  branch-cleanup-strategy:
+    description: 'The cleanup strategy for Branch Deployment cards.  Accepted Values: age|number'
+    required: true
+  branch-threshold:
+    description: 'The Max Age in Days or the Max Number of Items to keep, depending on the branch-cleanup-strategy'
+    required: true
+  tag-cleanup-strategy:
+    description: 'The cleanup strategy for Tag Deployment cards.  Accepted Values: age|number'
+    required: true
+  tag-threshold:
+    description: 'The Max Age in Days or the Max Number of Items to keep, depending on the tag-cleanup-strategy'
+    required: true
+  sha-cleanup-strategy:
+    description: 'The cleanup strategy for SHA Deployment cards.  Accepted Values: age|number'
+    required: true
+  sha-threshold:
+    description: 'The Max Age in Days or the Max Number of Items to keep, depending on the sha-cleanup-strategy'
+    required: true
+  board-number:
+    description: 'The number of the project board that will be updated.  Found by using the number in the board url.'
+    required: true
 
 runs:
   using: 'node12'
