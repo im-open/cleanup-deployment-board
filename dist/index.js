@@ -9530,29 +9530,19 @@ var format = require_format();
 var add = require_add2();
 var compareAsc = require_compareAsc();
 var { graphql } = require_dist_node6();
-var ghLogin = core.getInput('github-login');
-var ghToken = core.getInput('github-token');
-var branchCleanupStrategy = core.getInput('branch-cleanup-strategy');
-var tagCleanupStrategy = core.getInput('tag-cleanup-strategy');
-var shaCleanupStrategy = core.getInput('sha-cleanup-strategy');
-var branchThreshold = core.getInput('branch-threshold');
-var tagThreshold = core.getInput('tag-threshold');
-var shaThreshold = core.getInput('sha-threshold');
-var projectBoardNumber = core.getInput('board-number');
-var missingArguments = [];
-if (!ghToken) missingArguments.push('github-token');
-if (!branchCleanupStrategy) missingArguments.push('branch-cleanup-strategy');
-if (!tagCleanupStrategy) missingArguments.push('tag-cleanup-strategy');
-if (!shaCleanupStrategy) missingArguments.push('sha-cleanup-strategy');
-if (!branchThreshold) missingArguments.push('branch-threshold');
-if (!tagThreshold) missingArguments.push('tag-threshold');
-if (!shaThreshold) missingArguments.push('sha-threshold');
-if (!projectBoardNumber) missingArguments.push('board-number');
-if (missingArguments && missingArguments.length > 0) {
-  core.setFailed(`To call this action, provided the missing required arguments: ${missingArguments.join(', ')}`);
-  return;
-}
-if (!ghLogin || ghLogin.length === 0) ghLogin = 'github-actions';
+var requiredArgOptions = {
+  required: true,
+  trimWhitespace: true
+};
+var ghLogin = core.getInput('github-login') || 'github-actions';
+var ghToken = core.getInput('github-token', requiredArgOptions);
+var branchCleanupStrategy = core.getInput('branch-cleanup-strategy', requiredArgOptions);
+var tagCleanupStrategy = core.getInput('tag-cleanup-strategy', requiredArgOptions);
+var shaCleanupStrategy = core.getInput('sha-cleanup-strategy', requiredArgOptions);
+var branchThreshold = core.getInput('branch-threshold', requiredArgOptions);
+var tagThreshold = core.getInput('tag-threshold', requiredArgOptions);
+var shaThreshold = core.getInput('sha-threshold', requiredArgOptions);
+var projectBoardNumber = core.getInput('board-number', requiredArgOptions);
 var owner = github.context.repo.owner;
 var repo = github.context.repo.repo;
 var orgAndRepo = `${owner}/${repo}`;
@@ -9666,7 +9656,8 @@ async function getAllActiveItemsOnTheBoard() {
       } else if (rawIssue.title.toLowerCase().includes('branch deploy:')) {
         issue.refType = 'branch';
         activeBranches.push(issue);
-        const branchName = issue.title.replace('Branch Deploy: ', '').toLowerCase();
+        let branchRegex = /\[.*\] Branch Deploy: /i;
+        const branchName = issue.title.replace(branchRegex, '').toLowerCase();
         issue.isAnActiveBranch = activeRepoBranches.includes(branchName);
       } else if (rawIssue.title.toLowerCase().includes('sha deploy:')) {
         issue.refType = 'sha';
