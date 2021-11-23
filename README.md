@@ -1,5 +1,14 @@
 # cleanup-deployment-board
 
+  - [Overview](#overview)
+  - [Inputs](#inputs)
+  - [Example](#example)
+    - [Recompiling](#recompiling)
+    - [Incrementing the Version](#incrementing-the-version)
+  - [Code of Conduct](#code-of-conduct)
+  - [License](#license)
+
+## Overview
 This action will clean up inactive cards on an Automated Deployment Project Board.  It is intended to be used in conjunction with the [update-deployment-board] action which is what creates the cards to begin with.  
 
 When this action is run, it will pull all of the cards from the Automated Deployment Project board that were created by the [update-deployment-board] action.  It will examine the set of branch, tag and sha cards independently to determine what can be removed.  For each different set (branch/tag/sha) it will:
@@ -8,9 +17,7 @@ When this action is run, it will pull all of the cards from the Automated Deploy
 - Order the remaining cards by modified date
 - Apply the respective strategy to determine which remaining cards to keep and which to remove
 
-
 For the Branch Deploy cards, the action will not delete cards that have active branches. To keep this action working optimally, delete closed branches after a PR is merged.  This can be done automatically by going to the Repository's Settings/Options page and checking the box for `Automatically delete head branches`.
-  
 
 ## Inputs
 
@@ -43,7 +50,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Cleanup
-        uses: im-open/cleanup-deployment-board@v1.0.1
+        uses: im-open/cleanup-deployment-board@v1.0.2
         with:
           github-token: ${{ secrets.BOT_TOKEN}} 
           github-login: 'my-bot'  # The login that created the deployment cards to begin with.  Defaults to github-actions.
@@ -65,7 +72,7 @@ jobs:
           sha-threshold: '0'         
 ```
 
-## Recompiling
+### Recompiling
 
 If changes are made to the action's code in this repository, or its dependencies, you will need to re-compile the action.
 
@@ -79,6 +86,17 @@ npm run bundle
 
 These commands utilize [esbuild](https://esbuild.github.io/getting-started/#bundling-for-node) to bundle the action and
 its dependencies into a single file located in the `dist` folder.
+
+### Incrementing the Version
+
+This action uses [git-version-lite] to examine commit messages to determine whether to perform a major, minor or patch increment on merge.  The following table provides the fragment that should be included in a commit message to active different increment strategies.
+| Increment Type | Commit Message Fragment                     |
+| -------------- | ------------------------------------------- |
+| major          | +semver:breaking                            |
+| major          | +semver:major                               |
+| minor          | +semver:feature                             |
+| minor          | +semver:minor                               |
+| patch          | *default increment type, no comment needed* |
 
 ## Code of Conduct
 

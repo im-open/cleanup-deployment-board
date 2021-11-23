@@ -5630,7 +5630,7 @@ var require_utils4 = __commonJS({
       return typeof URLSearchParams !== 'undefined' && val instanceof URLSearchParams;
     }
     function trim(str) {
-      return str.replace(/^\s*/, '').replace(/\s*$/, '');
+      return str.trim ? str.trim() : str.replace(/^\s+|\s+$/g, '');
     }
     function isStandardBrowserEnv() {
       if (
@@ -5786,10 +5786,12 @@ var require_InterceptorManager = __commonJS({
     function InterceptorManager() {
       this.handlers = [];
     }
-    InterceptorManager.prototype.use = function use(fulfilled, rejected) {
+    InterceptorManager.prototype.use = function use(fulfilled, rejected, options) {
       this.handlers.push({
         fulfilled,
-        rejected
+        rejected,
+        synchronous: options ? options.synchronous : false,
+        runWhen: options ? options.runWhen : null
       });
       return this.handlers.length - 1;
     };
@@ -5806,30 +5808,6 @@ var require_InterceptorManager = __commonJS({
       });
     };
     module2.exports = InterceptorManager;
-  }
-});
-
-// node_modules/axios/lib/core/transformData.js
-var require_transformData = __commonJS({
-  'node_modules/axios/lib/core/transformData.js'(exports2, module2) {
-    'use strict';
-    var utils = require_utils4();
-    module2.exports = function transformData(data, headers, fns) {
-      utils.forEach(fns, function transform(fn) {
-        data = fn(data, headers);
-      });
-      return data;
-    };
-  }
-});
-
-// node_modules/axios/lib/cancel/isCancel.js
-var require_isCancel = __commonJS({
-  'node_modules/axios/lib/cancel/isCancel.js'(exports2, module2) {
-    'use strict';
-    module2.exports = function isCancel(value) {
-      return !!(value && value.__CANCEL__);
-    };
   }
 });
 
@@ -6107,6 +6085,7 @@ var require_xhr = __commonJS({
       return new Promise(function dispatchXhrRequest(resolve, reject) {
         var requestData = config.data;
         var requestHeaders = config.headers;
+        var responseType = config.responseType;
         if (utils.isFormData(requestData)) {
           delete requestHeaders['Content-Type'];
         }
@@ -6119,16 +6098,13 @@ var require_xhr = __commonJS({
         var fullPath = buildFullPath(config.baseURL, config.url);
         request.open(config.method.toUpperCase(), buildURL(fullPath, config.params, config.paramsSerializer), true);
         request.timeout = config.timeout;
-        request.onreadystatechange = function handleLoad() {
-          if (!request || request.readyState !== 4) {
-            return;
-          }
-          if (request.status === 0 && !(request.responseURL && request.responseURL.indexOf('file:') === 0)) {
+        function onloadend() {
+          if (!request) {
             return;
           }
           var responseHeaders = 'getAllResponseHeaders' in request ? parseHeaders(request.getAllResponseHeaders()) : null;
           var responseData =
-            !config.responseType || config.responseType === 'text' ? request.responseText : request.response;
+            !responseType || responseType === 'text' || responseType === 'json' ? request.responseText : request.response;
           var response = {
             data: responseData,
             status: request.status,
@@ -6139,7 +6115,20 @@ var require_xhr = __commonJS({
           };
           settle(resolve, reject, response);
           request = null;
-        };
+        }
+        if ('onloadend' in request) {
+          request.onloadend = onloadend;
+        } else {
+          request.onreadystatechange = function handleLoad() {
+            if (!request || request.readyState !== 4) {
+              return;
+            }
+            if (request.status === 0 && !(request.responseURL && request.responseURL.indexOf('file:') === 0)) {
+              return;
+            }
+            setTimeout(onloadend);
+          };
+        }
         request.onabort = function handleAbort() {
           if (!request) {
             return;
@@ -6156,7 +6145,14 @@ var require_xhr = __commonJS({
           if (config.timeoutErrorMessage) {
             timeoutErrorMessage = config.timeoutErrorMessage;
           }
-          reject(createError(timeoutErrorMessage, config, 'ECONNABORTED', request));
+          reject(
+            createError(
+              timeoutErrorMessage,
+              config,
+              config.transitional && config.transitional.clarifyTimeoutError ? 'ETIMEDOUT' : 'ECONNABORTED',
+              request
+            )
+          );
           request = null;
         };
         if (utils.isStandardBrowserEnv()) {
@@ -6180,14 +6176,8 @@ var require_xhr = __commonJS({
         if (!utils.isUndefined(config.withCredentials)) {
           request.withCredentials = !!config.withCredentials;
         }
-        if (config.responseType) {
-          try {
-            request.responseType = config.responseType;
-          } catch (e) {
-            if (config.responseType !== 'json') {
-              throw e;
-            }
-          }
+        if (responseType && responseType !== 'json') {
+          request.responseType = config.responseType;
         }
         if (typeof config.onDownloadProgress === 'function') {
           request.addEventListener('progress', config.onDownloadProgress);
@@ -6222,7 +6212,8 @@ var require_debug = __commonJS({
       if (!debug) {
         try {
           debug = require('debug')('follow-redirects');
-        } catch (error) {
+        } catch (error) {}
+        if (typeof debug !== 'function') {
           debug = function () {};
         }
       }
@@ -6248,7 +6239,7 @@ var require_follow_redirects = __commonJS({
         this._redirectable.emit(event, arg1, arg2, arg3);
       };
     });
-    var RedirectionError = createErrorType('ERR_FR_REDIRECTION_FAILURE', '');
+    var RedirectionError = createErrorType('ERR_FR_REDIRECTION_FAILURE', 'Redirected request failed');
     var TooManyRedirectsError = createErrorType('ERR_FR_TOO_MANY_REDIRECTS', 'Maximum number of redirects exceeded');
     var MaxBodyLengthExceededError = createErrorType(
       'ERR_FR_MAX_BODY_LENGTH_EXCEEDED',
@@ -6336,9 +6327,6 @@ var require_follow_redirects = __commonJS({
     };
     RedirectableRequest.prototype.setTimeout = function (msecs, callback) {
       var self = this;
-      if (callback) {
-        this.on('timeout', callback);
-      }
       function destroyOnTimeout(socket) {
         socket.setTimeout(msecs);
         socket.removeListener('timeout', socket.destroy);
@@ -6355,13 +6343,22 @@ var require_follow_redirects = __commonJS({
         destroyOnTimeout(socket);
       }
       function clearTimer() {
-        clearTimeout(this._timeout);
+        if (self._timeout) {
+          clearTimeout(self._timeout);
+          self._timeout = null;
+        }
+        self.removeListener('abort', clearTimer);
+        self.removeListener('error', clearTimer);
+        self.removeListener('response', clearTimer);
         if (callback) {
           self.removeListener('timeout', callback);
         }
-        if (!this.socket) {
+        if (!self.socket) {
           self._currentRequest.removeListener('socket', startTimer);
         }
+      }
+      if (callback) {
+        this.on('timeout', callback);
       }
       if (this.socket) {
         startTimer(this.socket);
@@ -6369,8 +6366,9 @@ var require_follow_redirects = __commonJS({
         this._currentRequest.once('socket', startTimer);
       }
       this.on('socket', destroyOnTimeout);
-      this.once('response', clearTimer);
-      this.once('error', clearTimer);
+      this.on('abort', clearTimer);
+      this.on('error', clearTimer);
+      this.on('response', clearTimer);
       return this;
     };
     ['flushHeaders', 'getHeader', 'setNoDelay', 'setSocketKeepAlive'].forEach(function (method) {
@@ -6467,14 +6465,24 @@ var require_follow_redirects = __commonJS({
           this._requestBodyBuffers = [];
           removeMatchingHeaders(/^content-/i, this._options.headers);
         }
-        var previousHostName =
-          removeMatchingHeaders(/^host$/i, this._options.headers) || url.parse(this._currentUrl).hostname;
-        var redirectUrl = url.resolve(this._currentUrl, location);
+        var currentHostHeader = removeMatchingHeaders(/^host$/i, this._options.headers);
+        var currentUrlParts = url.parse(this._currentUrl);
+        var currentHost = currentHostHeader || currentUrlParts.host;
+        var currentUrl = /^\w+:/.test(location)
+          ? this._currentUrl
+          : url.format(Object.assign(currentUrlParts, { host: currentHost }));
+        var redirectUrl;
+        try {
+          redirectUrl = url.resolve(currentUrl, location);
+        } catch (cause) {
+          this.emit('error', new RedirectionError(cause));
+          return;
+        }
         debug('redirecting to', redirectUrl);
         this._isRedirect = true;
         var redirectUrlParts = url.parse(redirectUrl);
         Object.assign(this._options, redirectUrlParts);
-        if (redirectUrlParts.hostname !== previousHostName) {
+        if (!(redirectUrlParts.host === currentHost || isSubdomainOf(redirectUrlParts.host, currentHost))) {
           removeMatchingHeaders(/^authorization$/i, this._options.headers);
         }
         if (typeof this._options.beforeRedirect === 'function') {
@@ -6490,9 +6498,7 @@ var require_follow_redirects = __commonJS({
         try {
           this._performRequest();
         } catch (cause) {
-          var error = new RedirectionError('Redirected request failed: ' + cause.message);
-          error.cause = cause;
-          this.emit('error', error);
+          this.emit('error', new RedirectionError(cause));
         }
       } else {
         response.responseUrl = this._currentUrl;
@@ -6575,16 +6581,21 @@ var require_follow_redirects = __commonJS({
       var lastValue;
       for (var header in headers) {
         if (regex.test(header)) {
-          lastValue = headers[header];
+          lastValue = headers[header].toString().trim();
           delete headers[header];
         }
       }
       return lastValue;
     }
     function createErrorType(code, defaultMessage) {
-      function CustomError(message) {
+      function CustomError(cause) {
         Error.captureStackTrace(this, this.constructor);
-        this.message = message || defaultMessage;
+        if (!cause) {
+          this.message = defaultMessage;
+        } else {
+          this.message = defaultMessage + ': ' + cause.message;
+          this.cause = cause;
+        }
       }
       CustomError.prototype = new Error();
       CustomError.prototype.constructor = CustomError;
@@ -6599,6 +6610,10 @@ var require_follow_redirects = __commonJS({
       request.on('error', noop);
       request.abort();
     }
+    function isSubdomainOf(subdomain, domain) {
+      const dot = subdomain.length - domain.length - 1;
+      return dot > 0 && subdomain[dot] === '.' && subdomain.endsWith(domain);
+    }
     module2.exports = wrap({ http, https });
     module2.exports.wrap = wrap;
   }
@@ -6609,11 +6624,11 @@ var require_package = __commonJS({
   'node_modules/axios/package.json'(exports2, module2) {
     module2.exports = {
       name: 'axios',
-      version: '0.21.1',
+      version: '0.21.2',
       description: 'Promise based HTTP client for the browser and node.js',
       main: 'index.js',
       scripts: {
-        test: 'grunt test && bundlesize',
+        test: 'grunt test',
         start: 'node ./sandbox/server.js',
         build: 'NODE_ENV=production grunt build',
         preversion: 'npm test',
@@ -6633,43 +6648,41 @@ var require_package = __commonJS({
       bugs: {
         url: 'https://github.com/axios/axios/issues'
       },
-      homepage: 'https://github.com/axios/axios',
+      homepage: 'https://axios-http.com',
       devDependencies: {
-        bundlesize: '^0.17.0',
         coveralls: '^3.0.0',
         'es6-promise': '^4.2.4',
-        grunt: '^1.0.2',
+        grunt: '^1.3.0',
         'grunt-banner': '^0.6.0',
         'grunt-cli': '^1.2.0',
         'grunt-contrib-clean': '^1.1.0',
         'grunt-contrib-watch': '^1.0.0',
-        'grunt-eslint': '^20.1.0',
-        'grunt-karma': '^2.0.0',
+        'grunt-eslint': '^23.0.0',
+        'grunt-karma': '^4.0.0',
         'grunt-mocha-test': '^0.13.3',
         'grunt-ts': '^6.0.0-beta.19',
-        'grunt-webpack': '^1.0.18',
+        'grunt-webpack': '^4.0.2',
         'istanbul-instrumenter-loader': '^1.0.0',
         'jasmine-core': '^2.4.1',
-        karma: '^1.3.0',
-        'karma-chrome-launcher': '^2.2.0',
-        'karma-coverage': '^1.1.1',
-        'karma-firefox-launcher': '^1.1.0',
+        karma: '^6.3.2',
+        'karma-chrome-launcher': '^3.1.0',
+        'karma-firefox-launcher': '^2.1.0',
         'karma-jasmine': '^1.1.1',
         'karma-jasmine-ajax': '^0.1.13',
-        'karma-opera-launcher': '^1.0.0',
         'karma-safari-launcher': '^1.0.0',
-        'karma-sauce-launcher': '^1.2.0',
+        'karma-sauce-launcher': '^4.3.6',
         'karma-sinon': '^1.0.5',
-        'karma-sourcemap-loader': '^0.3.7',
-        'karma-webpack': '^1.7.0',
+        'karma-sourcemap-loader': '^0.3.8',
+        'karma-webpack': '^4.0.2',
         'load-grunt-tasks': '^3.5.2',
         minimist: '^1.2.0',
-        mocha: '^5.2.0',
+        mocha: '^8.2.1',
         sinon: '^4.5.0',
-        typescript: '^2.8.1',
+        'terser-webpack-plugin': '^4.2.3',
+        typescript: '^4.0.5',
         'url-search-params': '^0.10.0',
-        webpack: '^1.13.1',
-        'webpack-dev-server': '^1.14.1'
+        webpack: '^4.44.2',
+        'webpack-dev-server': '^3.11.0'
       },
       browser: {
         './lib/adapters/http.js': './lib/adapters/xhr.js'
@@ -6678,7 +6691,7 @@ var require_package = __commonJS({
       unpkg: 'dist/axios.min.js',
       typings: './index.d.ts',
       dependencies: {
-        'follow-redirects': '^1.10.0'
+        'follow-redirects': '^1.14.0'
       },
       bundlesize: [
         {
@@ -6686,9 +6699,9 @@ var require_package = __commonJS({
           threshold: '5kB'
         }
       ],
-      _resolved: 'https://registry.npmjs.org/axios/-/axios-0.21.1.tgz',
-      _integrity: 'sha512-dKQiRHxGD9PPRIUNIWvZhPTPpl1rf/OxTYKsqKUDjBwYylTvV7SjSHJb9ratfyzM6wCdLCOYLzs73qpg5c4iGA==',
-      _from: 'axios@0.21.1'
+      _resolved: 'https://registry.npmjs.org/axios/-/axios-0.21.2.tgz',
+      _integrity: 'sha512-87otirqUw3e8CzHTMO+/9kh/FSgXt/eVDvipijwDtEuwbkySWZ9SBm6VEubmJ/kLKEoLQV/POhxXFb66bfekfg==',
+      _from: 'axios@0.21.2'
     };
   }
 });
@@ -6735,7 +6748,12 @@ var require_http = __commonJS({
         };
         var data = config.data;
         var headers = config.headers;
-        if (!headers['User-Agent'] && !headers['user-agent']) {
+        if ('User-Agent' in headers || 'user-agent' in headers) {
+          if (!headers['User-Agent'] && !headers['user-agent']) {
+            delete headers['User-Agent'];
+            delete headers['user-agent'];
+          }
+        } else {
           headers['User-Agent'] = 'axios/' + pkg.version;
         }
         if (data && !utils.isStream(data)) {
@@ -6878,9 +6896,11 @@ var require_http = __commonJS({
             settle(resolve, reject, response);
           } else {
             var responseBuffer = [];
+            var totalResponseBytes = 0;
             stream.on('data', function handleStreamData(chunk) {
               responseBuffer.push(chunk);
-              if (config.maxContentLength > -1 && Buffer.concat(responseBuffer).length > config.maxContentLength) {
+              totalResponseBytes += chunk.length;
+              if (config.maxContentLength > -1 && totalResponseBytes > config.maxContentLength) {
                 stream.destroy();
                 reject(
                   createError('maxContentLength size of ' + config.maxContentLength + ' exceeded', config, null, lastRequest)
@@ -6909,9 +6929,21 @@ var require_http = __commonJS({
           reject(enhanceError(err, config, null, req));
         });
         if (config.timeout) {
-          req.setTimeout(config.timeout, function handleRequestTimeout() {
+          var timeout = parseInt(config.timeout, 10);
+          if (isNaN(timeout)) {
+            reject(createError('error trying to parse `config.timeout` to int', config, 'ERR_PARSE_TIMEOUT', req));
+            return;
+          }
+          req.setTimeout(timeout, function handleRequestTimeout() {
             req.abort();
-            reject(createError('timeout of ' + config.timeout + 'ms exceeded', config, 'ECONNABORTED', req));
+            reject(
+              createError(
+                'timeout of ' + timeout + 'ms exceeded',
+                config,
+                config.transitional && config.transitional.clarifyTimeoutError ? 'ETIMEDOUT' : 'ECONNABORTED',
+                req
+              )
+            );
           });
         }
         if (config.cancelToken) {
@@ -6941,6 +6973,7 @@ var require_defaults = __commonJS({
     'use strict';
     var utils = require_utils4();
     var normalizeHeaderName = require_normalizeHeaderName();
+    var enhanceError = require_enhanceError();
     var DEFAULT_CONTENT_TYPE = {
       'Content-Type': 'application/x-www-form-urlencoded'
     };
@@ -6959,6 +6992,11 @@ var require_defaults = __commonJS({
       return adapter;
     }
     var defaults = {
+      transitional: {
+        silentJSONParsing: true,
+        forcedJSONParsing: true,
+        clarifyTimeoutError: false
+      },
       adapter: getDefaultAdapter(),
       transformRequest: [
         function transformRequest(data, headers) {
@@ -6981,8 +7019,8 @@ var require_defaults = __commonJS({
             setContentTypeIfUnset(headers, 'application/x-www-form-urlencoded;charset=utf-8');
             return data.toString();
           }
-          if (utils.isObject(data)) {
-            setContentTypeIfUnset(headers, 'application/json;charset=utf-8');
+          if (utils.isObject(data) || (headers && headers['Content-Type'] === 'application/json')) {
+            setContentTypeIfUnset(headers, 'application/json');
             return JSON.stringify(data);
           }
           return data;
@@ -6990,10 +7028,21 @@ var require_defaults = __commonJS({
       ],
       transformResponse: [
         function transformResponse(data) {
-          if (typeof data === 'string') {
+          var transitional = this.transitional;
+          var silentJSONParsing = transitional && transitional.silentJSONParsing;
+          var forcedJSONParsing = transitional && transitional.forcedJSONParsing;
+          var strictJSONParsing = !silentJSONParsing && this.responseType === 'json';
+          if (strictJSONParsing || (forcedJSONParsing && utils.isString(data) && data.length)) {
             try {
-              data = JSON.parse(data);
-            } catch (e) {}
+              return JSON.parse(data);
+            } catch (e) {
+              if (strictJSONParsing) {
+                if (e.name === 'SyntaxError') {
+                  throw enhanceError(e, this, 'E_JSON_PARSE');
+                }
+                throw e;
+              }
+            }
           }
           return data;
         }
@@ -7022,6 +7071,32 @@ var require_defaults = __commonJS({
   }
 });
 
+// node_modules/axios/lib/core/transformData.js
+var require_transformData = __commonJS({
+  'node_modules/axios/lib/core/transformData.js'(exports2, module2) {
+    'use strict';
+    var utils = require_utils4();
+    var defaults = require_defaults();
+    module2.exports = function transformData(data, headers, fns) {
+      var context = this || defaults;
+      utils.forEach(fns, function transform(fn) {
+        data = fn.call(context, data, headers);
+      });
+      return data;
+    };
+  }
+});
+
+// node_modules/axios/lib/cancel/isCancel.js
+var require_isCancel = __commonJS({
+  'node_modules/axios/lib/cancel/isCancel.js'(exports2, module2) {
+    'use strict';
+    module2.exports = function isCancel(value) {
+      return !!(value && value.__CANCEL__);
+    };
+  }
+});
+
 // node_modules/axios/lib/core/dispatchRequest.js
 var require_dispatchRequest = __commonJS({
   'node_modules/axios/lib/core/dispatchRequest.js'(exports2, module2) {
@@ -7038,7 +7113,7 @@ var require_dispatchRequest = __commonJS({
     module2.exports = function dispatchRequest(config) {
       throwIfCancellationRequested(config);
       config.headers = config.headers || {};
-      config.data = transformData(config.data, config.headers, config.transformRequest);
+      config.data = transformData.call(config, config.data, config.headers, config.transformRequest);
       config.headers = utils.merge(config.headers.common || {}, config.headers[config.method] || {}, config.headers);
       utils.forEach(['delete', 'get', 'head', 'post', 'put', 'patch', 'common'], function cleanHeaderConfig(method) {
         delete config.headers[method];
@@ -7047,14 +7122,19 @@ var require_dispatchRequest = __commonJS({
       return adapter(config).then(
         function onAdapterResolution(response) {
           throwIfCancellationRequested(config);
-          response.data = transformData(response.data, response.headers, config.transformResponse);
+          response.data = transformData.call(config, response.data, response.headers, config.transformResponse);
           return response;
         },
         function onAdapterRejection(reason) {
           if (!isCancel(reason)) {
             throwIfCancellationRequested(config);
             if (reason && reason.response) {
-              reason.response.data = transformData(reason.response.data, reason.response.headers, config.transformResponse);
+              reason.response.data = transformData.call(
+                config,
+                reason.response.data,
+                reason.response.headers,
+                config.transformResponse
+              );
             }
           }
           return Promise.reject(reason);
@@ -7152,6 +7232,79 @@ var require_mergeConfig = __commonJS({
   }
 });
 
+// node_modules/axios/lib/helpers/validator.js
+var require_validator = __commonJS({
+  'node_modules/axios/lib/helpers/validator.js'(exports2, module2) {
+    'use strict';
+    var pkg = require_package();
+    var validators = {};
+    ['object', 'boolean', 'number', 'function', 'string', 'symbol'].forEach(function (type, i) {
+      validators[type] = function validator(thing) {
+        return typeof thing === type || 'a' + (i < 1 ? 'n ' : ' ') + type;
+      };
+    });
+    var deprecatedWarnings = {};
+    var currentVerArr = pkg.version.split('.');
+    function isOlderVersion(version, thanVersion) {
+      var pkgVersionArr = thanVersion ? thanVersion.split('.') : currentVerArr;
+      var destVer = version.split('.');
+      for (var i = 0; i < 3; i++) {
+        if (pkgVersionArr[i] > destVer[i]) {
+          return true;
+        } else if (pkgVersionArr[i] < destVer[i]) {
+          return false;
+        }
+      }
+      return false;
+    }
+    validators.transitional = function transitional(validator, version, message) {
+      var isDeprecated = version && isOlderVersion(version);
+      function formatMessage(opt, desc) {
+        return '[Axios v' + pkg.version + "] Transitional option '" + opt + "'" + desc + (message ? '. ' + message : '');
+      }
+      return function (value, opt, opts) {
+        if (validator === false) {
+          throw new Error(formatMessage(opt, ' has been removed in ' + version));
+        }
+        if (isDeprecated && !deprecatedWarnings[opt]) {
+          deprecatedWarnings[opt] = true;
+          console.warn(
+            formatMessage(opt, ' has been deprecated since v' + version + ' and will be removed in the near future')
+          );
+        }
+        return validator ? validator(value, opt, opts) : true;
+      };
+    };
+    function assertOptions(options, schema, allowUnknown) {
+      if (typeof options !== 'object') {
+        throw new TypeError('options must be an object');
+      }
+      var keys = Object.keys(options);
+      var i = keys.length;
+      while (i-- > 0) {
+        var opt = keys[i];
+        var validator = schema[opt];
+        if (validator) {
+          var value = options[opt];
+          var result = value === void 0 || validator(value, opt, options);
+          if (result !== true) {
+            throw new TypeError('option ' + opt + ' must be ' + result);
+          }
+          continue;
+        }
+        if (allowUnknown !== true) {
+          throw Error('Unknown option ' + opt);
+        }
+      }
+    }
+    module2.exports = {
+      isOlderVersion,
+      assertOptions,
+      validators
+    };
+  }
+});
+
 // node_modules/axios/lib/core/Axios.js
 var require_Axios = __commonJS({
   'node_modules/axios/lib/core/Axios.js'(exports2, module2) {
@@ -7161,6 +7314,8 @@ var require_Axios = __commonJS({
     var InterceptorManager = require_InterceptorManager();
     var dispatchRequest = require_dispatchRequest();
     var mergeConfig = require_mergeConfig();
+    var validator = require_validator();
+    var validators = validator.validators;
     function Axios(instanceConfig) {
       this.defaults = instanceConfig;
       this.interceptors = {
@@ -7183,16 +7338,60 @@ var require_Axios = __commonJS({
       } else {
         config.method = 'get';
       }
-      var chain = [dispatchRequest, void 0];
-      var promise = Promise.resolve(config);
+      var transitional = config.transitional;
+      if (transitional !== void 0) {
+        validator.assertOptions(
+          transitional,
+          {
+            silentJSONParsing: validators.transitional(validators.boolean, '1.0.0'),
+            forcedJSONParsing: validators.transitional(validators.boolean, '1.0.0'),
+            clarifyTimeoutError: validators.transitional(validators.boolean, '1.0.0')
+          },
+          false
+        );
+      }
+      var requestInterceptorChain = [];
+      var synchronousRequestInterceptors = true;
       this.interceptors.request.forEach(function unshiftRequestInterceptors(interceptor) {
-        chain.unshift(interceptor.fulfilled, interceptor.rejected);
+        if (typeof interceptor.runWhen === 'function' && interceptor.runWhen(config) === false) {
+          return;
+        }
+        synchronousRequestInterceptors = synchronousRequestInterceptors && interceptor.synchronous;
+        requestInterceptorChain.unshift(interceptor.fulfilled, interceptor.rejected);
       });
+      var responseInterceptorChain = [];
       this.interceptors.response.forEach(function pushResponseInterceptors(interceptor) {
-        chain.push(interceptor.fulfilled, interceptor.rejected);
+        responseInterceptorChain.push(interceptor.fulfilled, interceptor.rejected);
       });
-      while (chain.length) {
-        promise = promise.then(chain.shift(), chain.shift());
+      var promise;
+      if (!synchronousRequestInterceptors) {
+        var chain = [dispatchRequest, void 0];
+        Array.prototype.unshift.apply(chain, requestInterceptorChain);
+        chain.concat(responseInterceptorChain);
+        promise = Promise.resolve(config);
+        while (chain.length) {
+          promise = promise.then(chain.shift(), chain.shift());
+        }
+        return promise;
+      }
+      var newConfig = config;
+      while (requestInterceptorChain.length) {
+        var onFulfilled = requestInterceptorChain.shift();
+        var onRejected = requestInterceptorChain.shift();
+        try {
+          newConfig = onFulfilled(newConfig);
+        } catch (error) {
+          onRejected(error);
+          break;
+        }
+      }
+      try {
+        promise = dispatchRequest(newConfig);
+      } catch (error) {
+        return Promise.reject(error);
+      }
+      while (responseInterceptorChain.length) {
+        promise = promise.then(responseInterceptorChain.shift(), responseInterceptorChain.shift());
       }
       return promise;
     };
@@ -9522,7 +9721,7 @@ var require_compareAsc = __commonJS({
   }
 });
 
-// main.js
+// src/main.js
 var core = require_core();
 var github = require_github();
 var axios = require_axios2();
