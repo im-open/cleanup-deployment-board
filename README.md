@@ -1,12 +1,16 @@
 # cleanup-deployment-board
+    
+## Index 
 
-  - [Overview](#overview)
-  - [Inputs](#inputs)
-  - [Example](#example)
-    - [Recompiling](#recompiling)
-    - [Incrementing the Version](#incrementing-the-version)
-  - [Code of Conduct](#code-of-conduct)
-  - [License](#license)
+- [Overview](#overview)
+- [Inputs](#inputs)
+- [Example](#example)
+- [Contributing](#contributing)
+  - [Recompiling](#recompiling)
+  - [Incrementing the Version](#incrementing-the-version)
+- [Code of Conduct](#code-of-conduct)
+- [License](#license)
+
 
 ## Overview
 This action will clean up inactive cards on an Automated Deployment Project Board.  It is intended to be used in conjunction with the [update-deployment-board] action which is what creates the cards to begin with.  
@@ -50,7 +54,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Cleanup
-        uses: im-open/cleanup-deployment-board@v1.0.2
+        uses: im-open/cleanup-deployment-board@v1.0.3
         with:
           github-token: ${{ secrets.BOT_TOKEN}} 
           github-login: 'my-bot'  # The login that created the deployment cards to begin with.  Defaults to github-actions.
@@ -71,6 +75,14 @@ jobs:
           sha-cleanup-strategy: 'number' 
           sha-threshold: '0'         
 ```
+
+## Contributing
+
+When creating new PRs please ensure:
+1. The action has been recompiled.  See the [Recompiling](#recompiling) section below for more details.
+2. For major or minor changes, at least one of the commit messages contains the appropriate `+semver:` keywords listed under [Incrementing the Version](#incrementing-the-version).
+3. The `README.md` example has been updated with the new version.  See [Incrementing the Version](#incrementing-the-version).
+4. The action code does not contain sensitive information.
 
 ### Recompiling
 
@@ -106,4 +118,5 @@ This project has adopted the [im-open's Code of Conduct](https://github.com/im-o
 
 Copyright &copy; 2021, Extend Health, LLC. Code released under the [MIT license](LICENSE).
 
+[git-version-lite]: https://github.com/im-open/git-version-lite
 [update-deployment-board]: https://github.com/im-open/update-deployment-board
