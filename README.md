@@ -51,7 +51,7 @@ jobs:
   cleanup-board:
     runs-on: [ubuntu-20.04]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Cleanup
         uses: im-open/cleanup-deployment-board@v1.0.8
