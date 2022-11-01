@@ -36,33 +36,35 @@ let activeBranches = [];
 let activeShas = [];
 
 async function closeAndArchiveItem(title, issue_number, cardId) {
-  try {
-    //First archive the project card if one exists
-    if (cardId && cardId !== 0) {
-      core.info(`Archiving card #${cardId} for '${title}'`);
-      await axios({
-        method: 'PATCH',
-        url: `https://api.github.com/projects/columns/cards/${cardId}`,
-        headers: {
-          'content-type': 'application/json',
-          authorization: `token ${ghToken}`,
-          accept: 'application/vnd.github.inertia-preview+json'
-        },
-        data: '{"archived" : true }'
-      });
-    }
+  //First archive the project card if one exists
+  if (cardId && cardId !== 0) {
+    core.info(`Archiving card #${cardId} for '${title}'`);
+    await axios({
+      method: 'PATCH',
+      url: `https://api.github.com/projects/columns/cards/${cardId}`,
+      headers: {
+        'content-type': 'application/json',
+        authorization: `token ${ghToken}`,
+        accept: 'application/vnd.github.inertia-preview+json'
+      },
+      data: '{"archived" : true }'
+    }).catch(error => {
+      core.setFailed(`An error occurred archiving card ${cardId}: ${error.message}`);
+    });
+  }
 
-    //Then close the issue
-    core.info(`Closing issue #${issue_number} for '${title}'`);
-    await octokit.rest.issues.update({
+  //Then close the issue
+  core.info(`Closing issue #${issue_number} for '${title}'`);
+  await octokit.rest.issues
+    .update({
       owner,
       repo,
       issue_number,
       state: 'closed'
+    })
+    .catch(error => {
+      core.setFailed(`An error occurred closing the issue: ${error.message}`);
     });
-  } catch (error) {
-    core.setFailed(`An error occurred closing the issue: ${error}`);
-  }
 }
 
 async function getAllActiveItemsOnTheBoard() {
@@ -154,27 +156,28 @@ async function getAllActiveItemsOnTheBoard() {
       }
     });
   } catch (error) {
-    core.setFailed(`An error occurred retrieving the cards: ${error}`);
+    core.setFailed(`An error occurred retrieving the cards: ${error.message}`);
   }
   return [];
 }
 
 async function getActiveBranches() {
-  try {
-    const response = await octokit.rest.repos.listBranches({
+  let activeBranches = [];
+  await octokit
+    .paginate(octokit.rest.repos.listBranches, {
       owner,
       repo
+    })
+    .then(branches => {
+      if (branches.length === 0) {
+        core.info(`There were no active branches on the ${orgAndRepo} repository.`);
+      }
+      activeBranches = branches.map(b => b.name.toLowerCase());
+    })
+    .catch(error => {
+      core.setFailed(`An error occurred retrieving the active branches for ${orgAndRepo}: ${error.message}`);
     });
-    if (!response || !response.data || response.data.length === 0) {
-      core.info(`There were no active branches on the ${orgAndRepo} repository.`);
-      return [];
-    }
-
-    const activeBranches = response.data.map(b => b.name.toLowerCase());
-    return activeBranches;
-  } catch (error) {
-    core.setFailed(`An error occurred retrieving the active branches for the ${orgAndRepo} repository: ${error}`);
-  }
+  return activeBranches;
 }
 
 async function figureOutItemsToRemoveByMaxAgeOfItems(activeItems, maxAgeInDays, cardType) {
