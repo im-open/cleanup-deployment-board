@@ -20934,6 +20934,7 @@ async function getAllActiveItemsOnTheBoard() {
   return [];
 }
 async function getActiveBranches() {
+  let activeBranches2 = [];
   await octokit
     .paginate(octokit.rest.repos.listBranches, {
       owner,
@@ -20942,14 +20943,13 @@ async function getActiveBranches() {
     .then(branches => {
       if (branches.length === 0) {
         core.info(`There were no active branches on the ${orgAndRepo} repository.`);
-        return [];
       }
-      const activeBranches2 = branches.map(b => b.name.toLowerCase());
-      return activeBranches2;
+      activeBranches2 = branches.map(b => b.name.toLowerCase());
     })
     .catch(error => {
       core.setFailed(`An error occurred retrieving the active branches for ${orgAndRepo}: ${error.message}`);
     });
+  return activeBranches2;
 }
 async function figureOutItemsToRemoveByMaxAgeOfItems(activeItems, maxAgeInDays, cardType) {
   if (!activeItems || activeItems.length == 0) {
