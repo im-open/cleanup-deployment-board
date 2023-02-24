@@ -11,7 +11,7 @@ const requiredArgOptions = {
   trimWhitespace: true
 };
 
-const ghLogin = core.getInput('github-login') || 'github-actions';
+const ghLogin = core.getInput('github-login') || 'github-actions[bot]';
 const ghToken = core.getInput('github-token', requiredArgOptions);
 const branchCleanupStrategy = core.getInput('branch-cleanup-strategy', requiredArgOptions); //age or number
 const tagCleanupStrategy = core.getInput('tag-cleanup-strategy', requiredArgOptions); //age or number
@@ -71,7 +71,7 @@ async function getAllActiveItemsOnTheBoard() {
   try {
     const query = `query {
         repository(owner: "${owner}", name: "${repo}") {
-          issues(last: 100, orderBy: {field: UPDATED_AT, direction: DESC}, filterBy: {mentioned: "${ghLogin}", states: [OPEN]}) {
+          issues(last: 100, orderBy: {field: UPDATED_AT, direction: DESC}, filterBy: {createdBy: "${ghLogin}", states: [OPEN]}) {
             edges {
               node {
                 databaseId
