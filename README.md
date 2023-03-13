@@ -54,7 +54,8 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Cleanup
-        uses: im-open/cleanup-deployment-board@v1.1.3
+        # You may also reference just the major or major.minor version
+        uses: im-open/cleanup-deployment-board@v1.1.4
         with:
           github-token: ${{ secrets.BOT_TOKEN}} 
           github-login: 'my-bot'  # The login that created the deployment cards to begin with.  Defaults to github-actions.

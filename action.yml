@@ -1,6 +1,5 @@
-name: 'Cleanup Deployment Board'
-
-description: 'Cleans up inactive deployment Issues on an Automated Deployment Project Board.'
+name: Cleanup Deployment Board
+description: Cleans up inactive deployment Issues on an Automated Deployment Project Board.
 
 inputs:
   github-token:
