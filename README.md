@@ -1,21 +1,25 @@
 # cleanup-deployment-board
-    
-## Index 
 
-- [Overview](#overview)
-- [Inputs](#inputs)
-- [Example](#example)
-- [Contributing](#contributing)
-  - [Recompiling](#recompiling)
-  - [Incrementing the Version](#incrementing-the-version)
-- [Code of Conduct](#code-of-conduct)
-- [License](#license)
+## Index <!-- omit in toc -->
 
+- [cleanup-deployment-board](#cleanup-deployment-board)
+  - [Overview](#overview)
+  - [Inputs](#inputs)
+  - [Usage Examples](#usage-examples)
+  - [Contributing](#contributing)
+    - [Incrementing the Version](#incrementing-the-version)
+    - [Source Code Changes](#source-code-changes)
+    - [Recompiling Manually](#recompiling-manually)
+    - [Updating the README.md](#updating-the-readmemd)
+  - [Code of Conduct](#code-of-conduct)
+  - [License](#license)
 
 ## Overview
+
 This action will clean up inactive cards on an Automated Deployment Project Board.  It is intended to be used in conjunction with the [update-deployment-board] action which is what creates the cards to begin with.  
 
 When this action is run, it will pull all of the cards from the Automated Deployment Project board that were created by the [update-deployment-board] action.  It will examine the set of branch, tag and sha cards independently to determine what can be removed.  For each different set (branch/tag/sha) it will:
+
 - Remove cards that are currently deployed to an environment from the list of potential cards to remove
 - Remove Branch Deploy cards that have an active branch associated with them from the list of potential cards to remove
 - Order the remaining cards by modified date
@@ -25,20 +29,19 @@ For the Branch Deploy cards, the action will not delete cards that have active b
 
 ## Inputs
 
-| Parameter                 | Is Required | Description                                                                                                                                                                                                                      |
-| ------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `github-token`            | true        | A token with permissions to create and update issues.                                                                                                                                                                            |
-| `github-login`            | false       | The login associated with the account that created the deployment cards.  Defaults to github-actions.                                                                                                                            |
-| `branch-cleanup-strategy` | true        | The cleanup strategy for Branch Deployment cards.  Accepted Values: *<age,number>*                                                                                                                                               |
-| `branch-threshold`        | true        | The Max Age in Days or the Max Number of Items to keep, depending on the branch-cleanup-strategy.                                                                                                                                |
-| `tag-cleanup-strategy`    | true        | The cleanup strategy for Tag Deployment cards.  Accepted Values: *<age,number>*                                                                                                                                                  |
-| `tag-threshold`           | true        | The Max Age in Days or the Max Number of Items to keep, depending on the tag-cleanup-strategy.                                                                                                                                   |
-| `sha-cleanup-strategy`    | true        | The cleanup strategy for SHA Deployment cards.  Accepted Values: *<age,number>*                                                                                                                                                  |
-| `sha-threshold`           | true        | The Max Age in Days or the Max Number of Items to keep, depending on the sha-cleanup-strategy.                                                                                                                                   |
-| `board-number`            | true        | The number of the project board that will be updated.  Can be found by using the number in the board's url. <br/><br/> For example the number would be 1 for:<br/>https://github.com/im-open/update-deployment-board/projects/1. |
+| Parameter                 | Is Required | Description                                                                                                                                                                                                                        |
+|---------------------------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `github-token`            | true        | A token with permissions to create and update issues.                                                                                                                                                                              |
+| `github-login`            | false       | The login associated with the account that created the deployment cards.  Defaults to github-actions.                                                                                                                              |
+| `branch-cleanup-strategy` | true        | The cleanup strategy for Branch Deployment cards.  Accepted Values: *<age,number>*                                                                                                                                                 |
+| `branch-threshold`        | true        | The Max Age in Days or the Max Number of Items to keep, depending on the branch-cleanup-strategy.                                                                                                                                  |
+| `tag-cleanup-strategy`    | true        | The cleanup strategy for Tag Deployment cards.  Accepted Values: *<age,number>*                                                                                                                                                    |
+| `tag-threshold`           | true        | The Max Age in Days or the Max Number of Items to keep, depending on the tag-cleanup-strategy.                                                                                                                                     |
+| `sha-cleanup-strategy`    | true        | The cleanup strategy for SHA Deployment cards.  Accepted Values: *<age,number>*                                                                                                                                                    |
+| `sha-threshold`           | true        | The Max Age in Days or the Max Number of Items to keep, depending on the sha-cleanup-strategy.                                                                                                                                     |
+| `board-number`            | true        | The number of the project board that will be updated.  Can be found by using the number in the board's url. <br/><br/> For example the number would be 1 for:<br/><https://github.com/im-open/update-deployment-board/projects/1>. |
 
-
-## Example
+## Usage Examples
 
 ```yml
 name: Cleanup Automated Deployment Board
@@ -79,56 +82,62 @@ jobs:
 
 ## Contributing
 
-When creating new PRs please ensure:
+When creating PRs, please review the following guidelines:
 
-1. For major or minor changes, at least one of the commit messages contains the appropriate `+semver:` keywords listed under [Incrementing the Version](#incrementing-the-version).
-1. The action code does not contain sensitive information.
-
-When a pull request is created and there are changes to code-specific files and folders, the build workflow will run and it will recompile the action and push a commit to the branch if the PR author has not done so. The usage examples in the README.md will also be updated with the next version if they have not been updated manually. The following files and folders contain action code and will trigger the automatic updates:
-
-- action.yml
-- package.json
-- package-lock.json
-- src/\*\*
-- dist/\*\*
-
-There may be some instances where the bot does not have permission to push changes back to the branch though so these steps should be done manually for those branches. See [Recompiling Manually](#recompiling-manually) and [Incrementing the Version](#incrementing-the-version) for more details.
-
-### Recompiling Manually
-
-If changes are made to the action's code in this repository, or its dependencies, the action can be re-compiled by running the following command:
-
-```sh
-# Installs dependencies and bundles the code
-npm run build
-
-# Bundle the code (if dependencies are already installed)
-npm run bundle
-```
-
-These commands utilize [esbuild](https://esbuild.github.io/getting-started/#bundling-for-node) to bundle the action and
-its dependencies into a single file located in the `dist` folder.
+- [ ] The action code does not contain sensitive information.
+- [ ] At least one of the commit messages contains the appropriate `+semver:` keywords listed under [Incrementing the Version] for major and minor increments.
+- [ ] The action has been recompiled.  See [Recompiling Manually] for details.
+- [ ] The README.md has been updated with the latest version of the action.  See [Updating the README.md] for details.
 
 ### Incrementing the Version
 
-Both the build and PR merge workflows will use the strategies below to determine what the next version will be.  If the build workflow was not able to automatically update the README.md action examples with the next version, the README.md should be updated manually as part of the PR using that calculated version.
+This repo uses [git-version-lite] in its workflows to examine commit messages to determine whether to perform a major, minor or patch increment on merge if [source code] changes have been made.  The following table provides the fragment that should be included in a commit message to active different increment strategies.
 
-This action uses [git-version-lite] to examine commit messages to determine whether to perform a major, minor or patch increment on merge.  The following table provides the fragment that should be included in a commit message to active different increment strategies.
 | Increment Type | Commit Message Fragment                     |
-| -------------- | ------------------------------------------- |
+|----------------|---------------------------------------------|
 | major          | +semver:breaking                            |
 | major          | +semver:major                               |
 | minor          | +semver:feature                             |
 | minor          | +semver:minor                               |
 | patch          | *default increment type, no comment needed* |
 
+### Source Code Changes
+
+The files and directories that are considered source code are listed in the `files-with-code` and `dirs-with-code` arguments in both the [build-and-review-pr] and [increment-version-on-merge] workflows.  
+
+If a PR contains source code changes, the README.md should be updated with the latest action version and the action should be recompiled.  The [build-and-review-pr] workflow will ensure these steps are performed when they are required.  The workflow will provide instructions for completing these steps if the PR Author does not initially complete them.
+
+If a PR consists solely of non-source code changes like changes to the `README.md` or workflows under `./.github/workflows`, version updates and recompiles do not need to be performed.
+
+### Recompiling Manually
+
+This command utilizes [esbuild] to bundle the action and its dependencies into a single file located in the `dist` folder.  If changes are made to the action's [source code], the action must be recompiled by running the following command:
+
+```sh
+# Installs dependencies and bundles the code
+npm run build
+```
+
+### Updating the README.md
+
+If changes are made to the action's [source code], the [usage examples] section of this file should be updated with the next version of the action.  Each instance of this action should be updated.  This helps users know what the latest tag is without having to navigate to the Tags page of the repository.  See [Incrementing the Version] for details on how to determine what the next version will be or consult the first workflow run for the PR which will also calculate the next version.
+
 ## Code of Conduct
 
-This project has adopted the [im-open's Code of Conduct](https://github.com/im-open/.github/blob/master/CODE_OF_CONDUCT.md).
+This project has adopted the [im-open's Code of Conduct](https://github.com/im-open/.github/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
 
-Copyright &copy; 2021, Extend Health, LLC. Code released under the [MIT license](LICENSE).
+Copyright &copy; 2023, Extend Health, LLC. Code released under the [MIT license](LICENSE).
 
+<!-- Links -->
+[Incrementing the Version]: #incrementing-the-version
+[Recompiling Manually]: #recompiling-manually
+[Updating the README.md]: #updating-the-readmemd
+[source code]: #source-code-changes
+[usage examples]: #usage-examples
+[build-and-review-pr]: ./.github/workflows/build-and-review-pr.yml
+[increment-version-on-merge]: ./.github/workflows/increment-version-on-merge.yml
+[esbuild]: https://esbuild.github.io/getting-started/#bundling-for-node
 [git-version-lite]: https://github.com/im-open/git-version-lite
 [update-deployment-board]: https://github.com/im-open/update-deployment-board
