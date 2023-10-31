@@ -1,8 +1,13 @@
 # cleanup-deployment-board
 
+## DEPRECATION NOTICE
+
+This action works in tandem with [im-open/update-deployment-board].  That action was implemented as a visual way to represent our deployments and we looked forward to GitHub creating a native feature that represented deployments to environments more accurately than just reporting which GitHub environments had been accessed.  The initial work used GitHub Projects which are now considered Classic Projects.  The API this action utilizes is not compatible with the new Issues and Projects so this action and [im-open/update-deployment-board] will be deprecated in the near future.  We haven't found a suitable alternative within GitHub so our focus will be on an external solution at this time.
+
 ## Index <!-- omit in toc -->
 
 - [cleanup-deployment-board](#cleanup-deployment-board)
+  - [DEPRECATION NOTICE](#deprecation-notice)
   - [Overview](#overview)
   - [Inputs](#inputs)
   - [Usage Examples](#usage-examples)
@@ -141,3 +146,4 @@ Copyright &copy; 2023, Extend Health, LLC. Code released under the [MIT license]
 [esbuild]: https://esbuild.github.io/getting-started/#bundling-for-node
 [git-version-lite]: https://github.com/im-open/git-version-lite
 [update-deployment-board]: https://github.com/im-open/update-deployment-board
+[im-open/update-deployment-board]: https://github.com/im-open/update-deployment-board
