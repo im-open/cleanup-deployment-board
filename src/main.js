@@ -128,7 +128,9 @@ async function getAllActiveItemsOnTheBoard() {
       };
 
       if (rawIssue.labels && rawIssue.labels.edges && rawIssue.labels.edges.length > 0) {
-        issue.labels = rawIssue.labels.edges.filter(l => l.node.name.includes('🚀currently-in-')).map(l => l.node.name);
+        issue.labels = rawIssue.labels.edges
+          .filter(l => l.node.name.includes('🚀currently-in-') || l.node.name.includes('🎰currently-in-'))
+          .map(l => l.node.name);
         issue.isCurrentlyDeployedToAnEnv = issue.labels && issue.labels.length > 0;
       }
 
