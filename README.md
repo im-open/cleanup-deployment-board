@@ -1,8 +1,10 @@
+# DEPRECATED
+
+This action was deprecated on 2024-02-07 and will no longer receive support or updates.
+
+This action works in tandem with [im-open/update-deployment-board].  That action was implemented as a visual way to represent our deployments and we looked forward to GitHub creating a native feature that represented deployments to environments more accurately than just reporting which GitHub environments had been accessed.  The initial work used GitHub Projects which are now considered Classic Projects.  The API this action utilizes is not compatible with the new Issues and Projects so this action and [im-open/update-deployment-board] is now being deprecated.  We haven't found a suitable alternative within GitHub so our focus will be on an external solution at this time.
+
 # cleanup-deployment-board
-
-## DEPRECATION NOTICE
-
-This action works in tandem with [im-open/update-deployment-board].  That action was implemented as a visual way to represent our deployments and we looked forward to GitHub creating a native feature that represented deployments to environments more accurately than just reporting which GitHub environments had been accessed.  The initial work used GitHub Projects which are now considered Classic Projects.  The API this action utilizes is not compatible with the new Issues and Projects so this action and [im-open/update-deployment-board] will be deprecated in the near future.  We haven't found a suitable alternative within GitHub so our focus will be on an external solution at this time.
 
 ## Index <!-- omit in toc -->
 
